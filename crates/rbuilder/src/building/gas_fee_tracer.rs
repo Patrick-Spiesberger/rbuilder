@@ -2,7 +2,7 @@ use super::order_commit::{PartialBlockForkExecutionTracer, TransactionOk, Transa
 use crate::primitives::TransactionSignedEcRecoveredWithBlobs;
 use tracing::info;
 use alloy_consensus::Transaction;
-use alloy_primitives::U256;
+
 
 pub struct GasFeeTracer;
 

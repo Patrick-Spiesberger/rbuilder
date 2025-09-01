@@ -95,7 +95,7 @@ pub fn run_ordering_builder<P, OrderPriorityType>(
     };
 
     // Initialize the Gas Fee Tracer
-    let gas_fee_tracer = crate::building::gas_fee_tracer::GasFeeTracer;
+    let _gas_fee_tracer = crate::building::gas_fee_tracer::GasFeeTracer;
 
     let nonces = NonceCache::new(block_state.clone());
 

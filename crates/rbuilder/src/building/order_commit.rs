@@ -5,8 +5,7 @@ use super::{
     tx_sim_cache::{CachedExecutionResult, EVMRecordingDatabase},
     BlockBuildingContext, EstimatePayoutGasErr, ThreadBlockBuildingContext,
 };
-use tokio_util::sync::CancellationToken;
-use tracing::{error, info, trace};
+use tracing::{error, info};
 
 use alloy_consensus::Transaction;
 use alloy_primitives::U256;
