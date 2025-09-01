@@ -7,6 +7,7 @@ pub mod order_statistics;
 pub mod serialize;
 mod test_data_generator;
 
+
 use crate::building::evm_inspector::UsedStateTrace;
 use alloy_consensus::Transaction as _;
 use alloy_eips::{
@@ -1078,27 +1079,31 @@ impl Order {
 pub struct ProfitInfo {
     /// profit as coinbase delta after executing an Order
     coinbase_profit: U256,
-    /// This is computed as coinbase_profit/gas_used so it includes not only gas tip but also payments made directly to coinbase
+    /// Total priority fees collected from the transaction
+    priority_fees: U256,
+    /// This is computed using only priority fees per gas, excluding direct coinbase payments
     mev_gas_price: U256,
 }
 
 impl ProfitInfo {
-    pub fn new(coinbase_profit: U256, gas_used: u64) -> Self {
+    pub fn new(coinbase_profit: U256, priority_fees: U256, gas_used: u64) -> Self {
         let mev_gas_price = if gas_used != 0 {
-            coinbase_profit / U256::from(gas_used)
+            priority_fees / U256::from(gas_used)
         } else {
             U256::ZERO
         };
         Self {
             coinbase_profit,
+            priority_fees,
             mev_gas_price,
         }
     }
 
     /// For testing specific values ignoring gas.
-    pub fn new_test(coinbase_profit: U256, mev_gas_price: U256) -> Self {
+    pub fn new_test(coinbase_profit: U256, priority_fees: U256, mev_gas_price: U256) -> Self {
         Self {
             coinbase_profit,
+            priority_fees,
             mev_gas_price,
         }
     }
@@ -1129,15 +1134,17 @@ impl SimValue {
     pub fn new(
         // full profit
         full_coinbase_profit: U256,
+        full_priority_fees: U256,
         // for s/bundles profit from non-mempool txs.
         non_mempool_coinbase_profit: U256,
+        non_mempool_priority_fees: U256,
         gas_used: u64,
         blob_gas_used: u64,
         paid_kickbacks: Vec<(Address, U256)>,
     ) -> Self {
         Self {
-            full_profit_info: ProfitInfo::new(full_coinbase_profit, gas_used),
-            non_mempool_profit_info: ProfitInfo::new(non_mempool_coinbase_profit, gas_used),
+            full_profit_info: ProfitInfo::new(full_coinbase_profit, full_priority_fees, gas_used),
+            non_mempool_profit_info: ProfitInfo::new(non_mempool_coinbase_profit, non_mempool_priority_fees, gas_used),
             gas_used,
             blob_gas_used,
             paid_kickbacks,
@@ -1146,18 +1153,24 @@ impl SimValue {
 
     /// For testing specific coinbase_profit/mev_gas_price values ignoring gas.
     /// coinbase_profit is the same for full_profit_info/non_mempool_profit_info
-    pub fn new_test_no_gas(coinbase_profit: U256, mev_gas_price: U256) -> Self {
+    pub fn new_test_no_gas(coinbase_profit: U256, priority_fees: U256, mev_gas_price: U256) -> Self {
         Self {
-            full_profit_info: ProfitInfo::new_test(coinbase_profit, mev_gas_price),
-            non_mempool_profit_info: ProfitInfo::new_test(coinbase_profit, mev_gas_price),
+            full_profit_info: ProfitInfo::new_test(coinbase_profit, priority_fees, mev_gas_price),
+            non_mempool_profit_info: ProfitInfo::new_test(coinbase_profit, priority_fees, mev_gas_price),
             ..Default::default()
         }
     }
 
-    pub fn new_test(full_coinbase_profit: U256, non_mempool_profit: U256, gas_used: u64) -> Self {
+    pub fn new_test(
+        full_coinbase_profit: U256,
+        full_priority_fees: U256,
+        non_mempool_profit: U256,
+        non_mempool_priority_fees: U256,
+        gas_used: u64
+    ) -> Self {
         Self {
-            full_profit_info: ProfitInfo::new(full_coinbase_profit, gas_used),
-            non_mempool_profit_info: ProfitInfo::new(non_mempool_profit, gas_used),
+            full_profit_info: ProfitInfo::new(full_coinbase_profit, full_priority_fees, gas_used),
+            non_mempool_profit_info: ProfitInfo::new(non_mempool_profit, non_mempool_priority_fees, gas_used),
             gas_used,
             ..Default::default()
         }

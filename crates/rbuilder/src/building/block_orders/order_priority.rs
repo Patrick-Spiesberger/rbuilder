@@ -327,10 +327,13 @@ mod test {
             gas: u64,
             order_type: OrderType,
         ) -> Arc<SimulatedOrder> {
+            // In tests, we set priority fees equal to the profit for simplicity
             Arc::new(SimulatedOrder {
                 order: self.create_order(order_type),
                 sim_value: SimValue::new_test(
                     U256::from(full_profit),
+                    U256::from(full_profit),
+                    U256::from(non_mempool_profit),
                     U256::from(non_mempool_profit),
                     gas,
                 ),

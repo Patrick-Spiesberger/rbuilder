@@ -5,6 +5,11 @@ use super::{
     tx_sim_cache::{CachedExecutionResult, EVMRecordingDatabase},
     BlockBuildingContext, EstimatePayoutGasErr, ThreadBlockBuildingContext,
 };
+use tokio_util::sync::CancellationToken;
+use tracing::{error, info, trace};
+
+use alloy_consensus::Transaction;
+use alloy_primitives::U256;
 use crate::{
     building::{
         estimate_payout_gas_limit,
@@ -18,9 +23,9 @@ use crate::{
     utils::{constants::BASE_TX_GAS, get_percent},
 };
 use ahash::HashSet;
-use alloy_consensus::{constants::KECCAK_EMPTY, Transaction};
+use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_eips::eip4844::DATA_GAS_PER_BLOB;
-use alloy_primitives::{Address, B256, I256, U256};
+use alloy_primitives::{Address, B256, I256};
 use itertools::Itertools;
 use reth::revm::database::StateProviderDatabase;
 use reth_errors::ProviderError;
@@ -187,6 +192,8 @@ pub struct TransactionExecutionInfo {
     pub tx: TransactionSignedEcRecoveredWithBlobs,
     pub receipt: Receipt,
     pub gas_used: u64,
+    /// Priority fees collected from the transaction (gas_used * effective_priority_fee_per_gas)
+    pub priority_fees: U256,
     /// coinbase balance after tx - before.
     pub coinbase_profit: I256,
 }
@@ -526,6 +533,16 @@ impl<
         gas_reserved: u64,
         cumulative_blob_gas_used: u64,
     ) -> Result<Result<TransactionOk, TransactionErr>, CriticalCommitOrderError> {
+        // Log gas fees before execution
+        let hash = tx_with_blobs.hash();
+        info!(
+            "Gas fees for transaction {:?}: max_fee_per_gas={:?}, max_priority_fee_per_gas={:?}, gas_limit={}",
+            hash,
+            tx_with_blobs.as_ref().max_fee_per_gas(),
+            tx_with_blobs.as_ref().max_priority_fee_per_gas().unwrap_or(0),
+            tx_with_blobs.as_ref().gas_limit()
+        );
+
         self.partial_block_fork_execution_tracer
             .update_commit_tx_about_to_execute(
                 tx_with_blobs,
@@ -547,6 +564,17 @@ impl<
                 cumulative_blob_gas_used,
                 &res,
             );
+
+        // Log gas fees after execution
+        if let Ok(Ok(tx_ok)) = &res {
+            info!(
+                "Transaction {:?} executed: gas_used={}, cumulative_gas_used={}",
+                tx_with_blobs.hash(),
+                tx_ok.tx_info.gas_used,
+                tx_ok.cumulative_gas_used
+            );
+        }
+        
         res
     }
     /// The state is updated ONLY when we return Ok(Ok)
@@ -696,6 +724,14 @@ impl<
                 tx: tx_with_blobs.clone(),
                 receipt,
                 gas_used,
+                priority_fees: {
+                    let base_fee = U256::from(self.ctx.evm_env.block_env.basefee);
+                    let max_priority_fee = U256::from(tx.max_priority_fee_per_gas().unwrap_or_default());
+                    let max_fee = U256::from(tx.max_fee_per_gas());
+                    let effective_priority_fee = max_priority_fee
+                        .min(max_fee.saturating_sub(base_fee));
+                    effective_priority_fee * U256::from(gas_used)
+                },
                 coinbase_profit: coinbase_balance_after - coinbase_balance_before,
             },
             nonce_updated: (tx.signer(), tx.nonce() + 1),

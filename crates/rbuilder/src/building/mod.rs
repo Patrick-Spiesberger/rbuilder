@@ -1,3 +1,4 @@
+use alloy_primitives::U256;
 use crate::{
     live_builder::{
         block_list_provider::BlockList, order_input::mempool_txs_detector::MempoolTxsDetector,
@@ -27,7 +28,7 @@ use alloy_eips::{
     merge::BEACON_NONCE,
 };
 use alloy_evm::{block::system_calls::SystemCaller, env::EvmEnv, eth::eip6110};
-use alloy_primitives::{Address, Bytes, B256, I256, U256};
+use alloy_primitives::{Address, Bytes, B256, I256};
 use alloy_rpc_types_beacon::events::PayloadAttributesEvent;
 use cached_reads::{LocalCachedReads, SharedCachedReads};
 use eth_sparse_mpt::SparseTrieLocalCache;
@@ -74,6 +75,7 @@ pub mod conflict;
 pub mod evm;
 pub mod evm_inspector;
 pub mod fmt;
+pub mod gas_fee_tracer;
 pub mod order_commit;
 pub mod payout_tx;
 pub mod precompile_cache;
@@ -1120,9 +1122,24 @@ pub fn create_sim_value(
         }
     };
 
+    let (full_priority_fees, non_mempool_priority_fees) = if let Order::Tx(_) = order {
+        (order_ok.tx_infos[0].priority_fees, order_ok.tx_infos[0].priority_fees)
+    } else {
+        let full_priority_fees: U256 = order_ok.tx_infos.iter().map(|tx_info| tx_info.priority_fees).sum();
+        let non_mempool_priority_fees: U256 = order_ok
+            .tx_infos
+            .iter()
+            .filter(|tx_info| !mempool_detector.is_mempool(&tx_info.tx))
+            .map(|tx_info| tx_info.priority_fees)
+            .sum();
+        (full_priority_fees, non_mempool_priority_fees)
+    };
+
     SimValue::new(
         order_ok.coinbase_profit,
+        full_priority_fees,
         non_mempool_coinbase_profit,
+        non_mempool_priority_fees,
         order_ok.gas_used,
         order_ok.blob_gas_used,
         order_ok.paid_kickbacks.clone(),
@@ -1163,12 +1180,14 @@ mod test {
                     tx: tx1,
                     receipt: Default::default(),
                     gas_used: Default::default(),
+                    priority_fees: U256::ZERO, // In tests we're not concerned with priority fees
                     coinbase_profit: profit_1,
                 },
                 TransactionExecutionInfo {
                     tx: tx2,
                     receipt: Default::default(),
                     gas_used: Default::default(),
+                    priority_fees: U256::ZERO, // In tests we're not concerned with priority fees
                     coinbase_profit: profit_2,
                 },
             ],
@@ -1213,6 +1232,7 @@ mod test {
                 tx,
                 receipt: Default::default(),
                 gas_used: Default::default(),
+                priority_fees: U256::ZERO, // In tests we're not concerned with priority fees
                 coinbase_profit: profit,
             }],
             delayed_kickback: None,

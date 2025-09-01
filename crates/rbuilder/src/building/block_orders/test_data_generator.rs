@@ -25,7 +25,11 @@ impl TestDataGenerator {
         mev_gas_price: u64,
     ) -> Arc<SimulatedOrder> {
         let sim_value =
-            SimValue::new_test_no_gas(U256::from(coinbase_profit), U256::from(mev_gas_price));
+            SimValue::new_test_no_gas(
+                U256::from(coinbase_profit),
+                U256::from(coinbase_profit), // In tests, we set priority_fees equal to coinbase_profit
+                U256::from(mev_gas_price)
+            );
 
         Arc::new(SimulatedOrder {
             order,

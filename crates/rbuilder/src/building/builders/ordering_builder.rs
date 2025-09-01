@@ -94,6 +94,9 @@ pub fn run_ordering_builder<P, OrderPriorityType>(
         }
     };
 
+    // Initialize the Gas Fee Tracer
+    let gas_fee_tracer = crate::building::gas_fee_tracer::GasFeeTracer;
+
     let nonces = NonceCache::new(block_state.clone());
 
     let mut order_intake_consumer =
@@ -441,8 +444,8 @@ mod tests {
 
     #[test]
     fn test_simulation_too_low_max_profit() {
-        let sim_result = &SimValue::new_test_no_gas(U256::from(100), U256::from(0));
-        let inplace_sim_result = &SimValue::new_test_no_gas(U256::from(94), U256::from(0));
+        let sim_result = &SimValue::new_test_no_gas(U256::from(100), U256::from(100), U256::from(0));
+        let inplace_sim_result = &SimValue::new_test_no_gas(U256::from(94), U256::from(94), U256::from(0));
 
         // Lower than 95% of the original value
         assert!(
@@ -489,7 +492,7 @@ mod tests {
         );
 
         // Equal to original value
-        let inplace_sim_result = &SimValue::new_test_no_gas(U256::from(0), U256::from(100));
+        let inplace_sim_result = &SimValue::new_test_no_gas(U256::from(0), U256::from(0), U256::from(100));
         assert!(
             simulation_too_low::<OrderMevGasPricePriority::<FullProfitInfoGetter>>(
                 sim_result,

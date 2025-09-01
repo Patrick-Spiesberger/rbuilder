@@ -122,6 +122,8 @@ where
             .builders
             .iter()
             .filter_map(|builder_name: &String| {
+                    use std::time::Instant;
+                    let start = Instant::now();
                 let input = BacktestSimulateBlockInput {
                     ctx: ctx.clone(),
                     builder_name: builder_name.clone(),
@@ -139,6 +141,7 @@ where
                     input,
                     NullPartialBlockExecutionTracer{})
                 };
+                    let duration = start.elapsed();
                 if let Err(err) = &build_res {
                     println!("Error building block: {:?}", err);
                     return None;
@@ -154,6 +157,7 @@ where
                     "Number of used orders: {}",
                     block.trace.included_orders.len()
                 );
+                    println!("Builder {:?} took {:?} to build the block.", builder_name, duration);
 
                 //println!("Used orders:");
                 for order_result in &block.trace.included_orders {

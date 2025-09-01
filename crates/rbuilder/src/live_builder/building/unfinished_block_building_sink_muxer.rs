@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use ahash::HashMap;
+
 use parking_lot::Mutex;
 
 use crate::building::builders::{
@@ -141,6 +142,7 @@ mod tests {
                         tx,
                         receipt: Default::default(),
                         gas_used: 0,
+                        priority_fees: U256::ZERO,
                         coinbase_profit: I256::ZERO,
                     }],
                     original_order_ids: Default::default(),
