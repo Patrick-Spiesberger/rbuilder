@@ -20,6 +20,7 @@ use crate::{
     primitives::{order_statistics::OrderStatistics, Order, OrderId, SimulatedOrder},
     provider::StateProviderFactory,
 };
+use alloy_consensus::Transaction;
 use clap::Parser;
 use std::{path::PathBuf, sync::Arc};
 
@@ -36,7 +37,7 @@ pub struct BuildBlockCfg {
     #[clap(
         long,
         help = "builders to build block with (see config builders)",
-        default_value = "mp-ordering"
+        default_value = "fair-inclusion"
     )]
     pub builders: Vec<String>,
     #[clap(
@@ -161,11 +162,15 @@ where
 
                 //println!("Used orders:");
                 for order_result in &block.trace.included_orders {
+                    let priority_fees: Vec<String> = order_result.tx_infos.iter()
+                        .map(|info| format_ether(info.tx.as_ref().max_priority_fee_per_gas().unwrap_or_default()))
+                        .collect();
                     println!(
-                        "{:>74} gas: {:>8} profit: {}",
+                        "{:>74} gas: {:>8} profit: {} priority_fee: {}",
                         order_result.order.id().to_string(),
                         order_result.gas_used,
                         format_ether(order_result.coinbase_profit),
+                        priority_fees.join(", "),
                     );
                     if let Order::Bundle(_) | Order::ShareBundle(_) = order_result.order {
                         for tx in order_result.tx_infos.iter().map(|info| &info.tx) {
@@ -181,15 +186,24 @@ where
                         }
                     }
                 }
-                Some((builder_name.clone(), block.trace.bid_value))
-            })
-            .max_by_key(|(_, value)| *value);
+                // Calculate total priority fees paid
+                let total_priority_fees = block.trace.included_orders.iter().fold(0u128, |acc, order_result| {
+                    acc + order_result.tx_infos.iter().fold(0u128, |tx_acc, tx_info| {
+                        let priority_fee = tx_info.tx.as_ref().max_priority_fee_per_gas().unwrap_or_default();
+                        tx_acc + (priority_fee * (tx_info.gas_used as u128))
+                    })
+                });
 
-        if let Some((builder_name, value)) = winning_builder {
+                Some((builder_name.clone(), block.trace.bid_value, total_priority_fees))
+            })
+            .max_by_key(|(_, value, _)| *value);
+
+        if let Some((builder_name, value, total_priority_fees)) = winning_builder {
             println!(
-                "Winning builder: {} with profit: {}",
+                "Winning builder: {} with profit: {}, total priority fees paid: {}",
                 builder_name,
-                format_ether(value)
+                format_ether(value),
+                format_ether(total_priority_fees)
             );
         }
     }
