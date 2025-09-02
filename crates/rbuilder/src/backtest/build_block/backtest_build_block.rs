@@ -161,7 +161,21 @@ where
                     println!("Builder {:?} took {:?} to build the block.", builder_name, duration);
 
                 //println!("Used orders:");
-                for order_result in &block.trace.included_orders {
+                // Sort orders by their maximum priority fee
+                let mut sorted_orders = block.trace.included_orders.clone();
+                sorted_orders.sort_by(|a, b| {
+                    let a_max_fee = a.tx_infos.iter()
+                        .map(|info| info.tx.as_ref().max_priority_fee_per_gas().unwrap_or_default())
+                        .max()
+                        .unwrap_or_default();
+                    let b_max_fee = b.tx_infos.iter()
+                        .map(|info| info.tx.as_ref().max_priority_fee_per_gas().unwrap_or_default())
+                        .max()
+                        .unwrap_or_default();
+                    b_max_fee.cmp(&a_max_fee) // Absteigend sortieren
+                });
+                
+                for order_result in &sorted_orders {
                     let priority_fees: Vec<String> = order_result.tx_infos.iter()
                         .map(|info| format_ether(info.tx.as_ref().max_priority_fee_per_gas().unwrap_or_default()))
                         .collect();
