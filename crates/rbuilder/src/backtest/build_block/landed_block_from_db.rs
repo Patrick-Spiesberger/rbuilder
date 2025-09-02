@@ -159,15 +159,17 @@ async fn read_block_data(
     backtest_fetch_output_file: &PathBuf,
     block: u64,
     only_order_ids: Vec<String>,
-    block_building_time_ms: i64,
+    _block_building_time_ms: i64,
     show_missing: bool,
 ) -> eyre::Result<BlockData> {
     let mut historical_data_storage =
         HistoricalDataStorage::new_from_path(backtest_fetch_output_file).await?;
 
     let full_block_data = historical_data_storage.read_block_data(block).await?;
+    let timestamp_rounded = (full_block_data.winning_bid_trace.timestamp_ms / 1000) * 1000;
     let orders_cutoff_time = timestamp_ms_to_offset_datetime(
-        (full_block_data.winning_bid_trace.timestamp_ms as i64 - block_building_time_ms) as u64,
+        //3000ms for fair inclusion condition
+        (timestamp_rounded as i64 - 3000) as u64,
     );
     let mut block_data = full_block_data.snapshot_including_landed(orders_cutoff_time)?;
     if !only_order_ids.is_empty() {
