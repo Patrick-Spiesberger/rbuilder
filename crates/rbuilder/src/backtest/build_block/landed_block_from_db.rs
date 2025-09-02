@@ -1,7 +1,7 @@
 //!
 //! Backtest app to build a single block in a similar way as we do in live.
 //! It gets the orders from a HistoricalDataStorage, simulates the orders and then runs the building algorithms.
-//! It outputs the best algorithm (most profit) so we can check for improvements in our [crate::building::builders::BlockBuildingAlgorithm]s
+//! It outputs algorithm (most profit) so we can check for improvements in our [crate::building::builders::BlockBuildingAlgorithm]s
 //! BlockBuildingAlgorithm are defined on the config file but selected on the command line via "--builders"
 //! Sample call:
 //! backtest-build-block --config /home/happy_programmer/config.toml --builders mgp-ordering --builders mp-ordering 19380913 --show-orders --show-missing
@@ -20,12 +20,14 @@ use crate::{
             SimplifiedOrder,
         },
         BlockData, HistoricalDataStorage, OrdersWithTimestamp,
+        TransactionTrait,
     },
     building::{builders::mock_block_building_helper::MockRootHasher, BlockBuildingContext},
     live_builder::{
         base_config::load_config_toml_and_env, block_list_provider::BlockList,
         cli::LiveBuilderConfig,
     },
+    primitives::Order,
     utils::{timestamp_as_u64, timestamp_ms_to_offset_datetime, ProviderFactoryReopener},
 };
 use clap::Parser;
@@ -191,19 +193,37 @@ async fn read_block_data(
         block_data.winning_bid_trace.builder_pubkey
     );
     
-    // Print available orders
-    println!("\n=== Available Orders for Block {} ===", block_data.block_number);
-    for (i, order) in block_data.available_orders.iter().enumerate() {
-        println!("\nOrder #{}", i + 1);
-        println!("Timestamp: {} ({})", 
-            order.timestamp_ms,
-            timestamp_ms_to_offset_datetime(order.timestamp_ms)
-        );
-        println!("Order ID: {}", order.order.id());
-        println!("Order Type: {:?}", order.order);
+        // Print available orders
+    println!("
+=== Available Orders for Block {} ===", block_data.block_number);
+    for (i, order_with_ts) in block_data.available_orders.iter().enumerate() {
+        if let Order::Tx(tx) = &order_with_ts.order {
+            println!("
+Order #{}", i + 1);
+            println!("Timestamp: {} ({})", 
+                order_with_ts.timestamp_ms,
+                timestamp_ms_to_offset_datetime(order_with_ts.timestamp_ms)
+            );
+            println!("Order ID: {}", order_with_ts.order.id());
+            println!("Order Type: Single Transaction");
+            println!("Gas Limit: {}", tx.tx_with_blobs.as_ref().gas_limit());
+            let max_fee = tx.tx_with_blobs.as_ref().max_fee_per_gas();
+            println!("Max Fee Per Gas: {:?} wei", max_fee);
+            let max_prio = tx.tx_with_blobs.as_ref().max_priority_fee_per_gas();
+            println!("Max Priority Fee: {:?} wei", max_prio);
+            println!("Transaction Value: {} wei", tx.tx_with_blobs.as_ref().value());
+            println!("To Address: {:?}", tx.tx_with_blobs.as_ref().to());
+            println!("Hash: {:?}", tx.tx_with_blobs.as_ref().hash());
+            println!("----------------------------------------");
+        }
     }
-    println!("\nTotal Available Orders: {}", block_data.available_orders.len());
-    println!("=== End of Orders ===\n");
+    let tx_count = block_data.available_orders.iter()
+        .filter(|o| matches!(o.order, Order::Tx(_)))
+        .count();
+    println!("
+Total Single Transactions: {}", tx_count);
+    println!("=== End of Orders ===
+");
     Ok(block_data)
 }
 
