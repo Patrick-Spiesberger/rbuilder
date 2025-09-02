@@ -15,11 +15,46 @@ pub struct DatasourceData {
     pub built_block_data: Option<BuiltBlockData>,
 }
 
+impl DatasourceData {
+    pub fn print_orders(&self) {
+        println!("\n=== Orders in DatasourceData ===");
+        for (i, order) in self.orders.iter().enumerate() {
+            println!("Order #{}", i + 1);
+            println!("Timestamp: {}", order.timestamp_ms);
+            println!("Order ID: {}", order.order.id());
+            println!("Order Type: {:?}\n", order.order);
+        }
+        println!("Total Orders: {}", self.orders.len());
+        println!("=== End of Orders ===\n");
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FullSlotDatasourceData {
     /// Orders are NOT guarantied to be sorted by timestamp.
     pub orders: Vec<ReplaceableOrderPoolCommandWithTimestamp>,
     pub built_block_data: Option<BuiltBlockData>,
+}
+
+impl FullSlotDatasourceData {
+    pub fn print_orders(&self) {
+        println!("\n=== Orders in FullSlotDatasourceData ===");
+        for (i, order) in self.orders.iter().enumerate() {
+            println!("Order #{}", i + 1);
+            println!("Timestamp: {}", order.timestamp_ms);
+            match &order.command {
+                ReplaceableOrderPoolCommand::Order(o) => {
+                    println!("Order ID: {}", o.id());
+                    println!("Order Type: {:?}", o);
+                },
+                ReplaceableOrderPoolCommand::CancelShareBundle(c) => println!("Cancel Share Bundle: {:?}", c),
+                ReplaceableOrderPoolCommand::CancelBundle(c) => println!("Cancel Bundle: {:?}", c),
+            }
+            println!("");
+        }
+        println!("Total Orders: {}", self.orders.len());
+        println!("=== End of Orders ===\n");
+    }
 }
 
 /// DataSource trait

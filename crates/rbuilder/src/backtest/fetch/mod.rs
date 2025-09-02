@@ -181,6 +181,8 @@ impl HistoricalDataFetcher {
         let mut built_block_data = None;
         for datasource in &self.data_sources {
             let mut data = datasource.get_data(block_ref).await?;
+            println!("\nData from datasource {:?}:", datasource);
+            data.print_orders();
             orders.append(&mut data.orders);
             if built_block_data.is_none() && data.built_block_data.is_some() {
                 built_block_data = data.built_block_data;
@@ -221,6 +223,8 @@ impl HistoricalDataFetcher {
         let mut available_orders: Vec<ReplaceableOrderPoolCommandWithTimestamp> = vec![];
         for datasource in &self.data_sources {
             let mut data = datasource.get_full_slot_data(block_ref).await?;
+            println!("\nFull Slot Data from datasource {:?}:", datasource);
+            data.print_orders();
             available_orders.append(&mut data.orders);
             if built_block_data.is_none() && data.built_block_data.is_some() {
                 built_block_data = data.built_block_data;

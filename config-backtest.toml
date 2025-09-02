@@ -1,5 +1,3 @@
-log_level = "info,rbuilder=debug"
-
 chain = "mainnet"
 reth_datadir = "/data/fast/rbuilder/reth"
 
@@ -33,8 +31,8 @@ drop_failed_orders = true
 [[builders]]
 name = "fair-inclusion"
 algo = "ordering-builder"
-discard_txs = false
+discard_txs = true
 sorting = "mev-gas-price"
-failed_order_retries = 10
-drop_failed_orders = false
+failed_order_retries = 0
+drop_failed_orders = true
 build_duration_deadline_ms = 3000

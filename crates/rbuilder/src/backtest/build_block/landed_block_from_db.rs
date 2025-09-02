@@ -190,6 +190,20 @@ async fn read_block_data(
         "builder pubkey: {:?}",
         block_data.winning_bid_trace.builder_pubkey
     );
+    
+    // Print available orders
+    println!("\n=== Available Orders for Block {} ===", block_data.block_number);
+    for (i, order) in block_data.available_orders.iter().enumerate() {
+        println!("\nOrder #{}", i + 1);
+        println!("Timestamp: {} ({})", 
+            order.timestamp_ms,
+            timestamp_ms_to_offset_datetime(order.timestamp_ms)
+        );
+        println!("Order ID: {}", order.order.id());
+        println!("Order Type: {:?}", order.order);
+    }
+    println!("\nTotal Available Orders: {}", block_data.available_orders.len());
+    println!("=== End of Orders ===\n");
     Ok(block_data)
 }
 
