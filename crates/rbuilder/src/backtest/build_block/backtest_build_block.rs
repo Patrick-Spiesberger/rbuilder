@@ -161,7 +161,7 @@ where
                     println!("Builder {:?} took {:?} to build the block.", builder_name, duration);
 
                 //println!("Used orders:");
-                // Sort orders by their maximum priority fee
+                // Sort orders by their maximum priority fee and hash
                 let mut sorted_orders = block.trace.included_orders.clone();
                 sorted_orders.sort_by(|a, b| {
                     let a_max_fee = a.tx_infos.iter()
@@ -172,7 +172,20 @@ where
                         .map(|info| info.tx.as_ref().max_priority_fee_per_gas().unwrap_or_default())
                         .max()
                         .unwrap_or_default();
-                    b_max_fee.cmp(&a_max_fee) // Absteigend sortieren
+                    
+                    match b_max_fee.cmp(&a_max_fee) {
+                        std::cmp::Ordering::Equal => {
+                            let a_hash = a.tx_infos.first().map(|info| info.tx.hash());
+                            let b_hash = b.tx_infos.first().map(|info| info.tx.hash());
+                            match (a_hash, b_hash) {
+                                (Some(a), Some(b)) => b.cmp(&a),
+                                (Some(_), None) => std::cmp::Ordering::Less,
+                                (None, Some(_)) => std::cmp::Ordering::Greater,
+                                (None, None) => std::cmp::Ordering::Equal,
+                            }
+                        },
+                        other => other,
+                    }
                 });
                 
                 for order_result in &sorted_orders {
